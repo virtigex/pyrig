@@ -45,29 +45,52 @@ for i in range(p.get_device_count()):
     dev = p.get_device_info_by_index(i)
     if 'USB Audio CODEC' in dev['name']:
         print(f'device {dev['index']} name {dev['name']}')
-        #print(dev)
+
+class RadioException(Exception):
+    pass
 
 def cat_cmd(ser, cmd):
     termcmd = cmd + ';\n'
     ser.write(termcmd.encode('utf-8'))
-    res = ser.read(64)
+    res = ser.read(size=64)
     return res.decode('utf-8')
+
+
+def cat_set_cmd(ser, cmd):
+    result = cat_cmd(ser, cmd)
+    if result != '?;':
+        raise RadioException('no reply')
 
 try:
     ser = serial.Serial(ports[0], 9600, timeout=1)
     ser.close()
     ser.open()
-    res = cat_cmd(ser, 'FA028075000')
-    print(res)
+except serial.SerialException:
+    print('cannot open serial device')
+    exit(-1)
+
+try:
+    cat_set_cmd(ser, 'FA028075000')
+    cat_set_cmd(ser, 'MD02') # USB
+
     res = cat_cmd(ser, 'FA')
     print(res)
-    res = cat_cmd(ser, 'MD')
-    print(res)
-    res = cat_cmd(ser, 'TX1')
-    print(res)
+
+    print('transmitting')
+    cat_set_cmd(ser, 'TX1')
+
     time.sleep(2)
-    res = cat_cmd(ser, 'TX0')
-    print(res)
+
+    cat_set_cmd(ser, 'TX0')
+    print('transmit finished')
+except serial.SerialException:
+    print('exception!')
+except RadioException:
+    print('protocol exception')
+
+try:
+    ser.close()
 except serial.SerialException:
     print('exception!')
 
+exit(0)
