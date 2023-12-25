@@ -2,6 +2,7 @@ import sys
 import glob
 import pyaudio
 import serial
+import time
 
 print('rig 1.0')
 
@@ -42,4 +43,31 @@ print(ports)
 p = pyaudio.PyAudio()
 for i in range(p.get_device_count()):
     dev = p.get_device_info_by_index(i)
-    print(dev['name'])
+    if 'USB Audio CODEC' in dev['name']:
+        print(f'device {dev['index']} name {dev['name']}')
+        #print(dev)
+
+def cat_cmd(ser, cmd):
+    termcmd = cmd + ';\n'
+    ser.write(termcmd.encode('utf-8'))
+    res = ser.read(64)
+    return res.decode('utf-8')
+
+try:
+    ser = serial.Serial(ports[0], 9600, timeout=1)
+    ser.close()
+    ser.open()
+    res = cat_cmd(ser, 'FA028075000')
+    print(res)
+    res = cat_cmd(ser, 'FA')
+    print(res)
+    res = cat_cmd(ser, 'MD')
+    print(res)
+    res = cat_cmd(ser, 'TX1')
+    print(res)
+    time.sleep(2)
+    res = cat_cmd(ser, 'TX0')
+    print(res)
+except serial.SerialException:
+    print('exception!')
+
