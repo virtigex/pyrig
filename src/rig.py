@@ -1,11 +1,7 @@
 import sys
 import glob
-import pyaudio
 import serial
 import time
-
-print('rig 1.0')
-
 
 def serial_ports():
     """ Lists serial port names
@@ -31,20 +27,21 @@ def serial_ports():
             s = serial.Serial(port)
             s.close()
             result.append(port)
-        except (OSError, serial.SerialException):
+        except (OSError, Exception):
             pass
     return result
 
 
-ports = serial_ports()
 
-print(ports)
-
-p = pyaudio.PyAudio()
-for i in range(p.get_device_count()):
-    dev = p.get_device_info_by_index(i)
-    if 'USB Audio CODEC' in dev['name']:
-        print(f'device {dev['index']} name {dev['name']}')
+def list_audio():
+    import pyaudio
+    p = pyaudio.PyAudio()
+    for i in range(p.get_device_count()):
+        dev = p.get_device_info_by_index(i)
+        if 'USB Audio CODEC' in dev['name']:
+            index = dev['index']
+            name = dev['name']
+            print(f'device {index} name {name}')
 
 class RadioException(Exception):
     pass
@@ -60,37 +57,50 @@ def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
     if result != '?;':
         raise RadioException('no reply')
+def test_port(port):
+    try:
+        ser = serial.Serial(port, 9600, timeout=1)
+        ser.close()
+        ser.open()
+    except serial.SerialException:
+        print('cannot open serial device')
+        exit(-1)
 
-try:
-    ser = serial.Serial(ports[0], 9600, timeout=1)
-    ser.close()
-    ser.open()
-except serial.SerialException:
-    print('cannot open serial device')
-    exit(-1)
+    try:
+        cat_set_cmd(ser, 'FA028075000')
+        cat_set_cmd(ser, 'MD02') # USB
 
-try:
-    cat_set_cmd(ser, 'FA028075000')
-    cat_set_cmd(ser, 'MD02') # USB
+        res = cat_cmd(ser, 'FA')
+        print(res)
 
-    res = cat_cmd(ser, 'FA')
-    print(res)
+        print('transmitting')
+        cat_set_cmd(ser, 'TX1')
 
-    print('transmitting')
-    cat_set_cmd(ser, 'TX1')
+        time.sleep(2)
 
-    time.sleep(2)
+        cat_set_cmd(ser, 'TX0')
+        print('transmit finished')
+    except serial.SerialException:
+        print('exception!')
+    except RadioException:
+        print('protocol exception')
 
-    cat_set_cmd(ser, 'TX0')
-    print('transmit finished')
-except serial.SerialException:
-    print('exception!')
-except RadioException:
-    print('protocol exception')
+    try:
+        ser.close()
+    except serial.SerialException:
+        print('exception!')
 
-try:
-    ser.close()
-except serial.SerialException:
-    print('exception!')
+if __name__ == '__main__':
+    print('rig 1.0')
+    print(sys.argv)
+    ports = serial_ports()
+    if len(sys.argv) == 1:
+        print(f'Usage: rig <serial-port-index>')
+        print(ports)
+        for i in range(len(ports)):
+            name = ports[i]
+            print(f'{i}: {name}') 
+    else:
+        test_port(ports(int(sys.argv[1])))
 
 exit(0)
