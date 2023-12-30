@@ -92,15 +92,14 @@ def test_port(port):
 
 if __name__ == '__main__':
     print('rig 1.0')
-    print(sys.argv)
     ports = serial_ports()
     if len(sys.argv) == 1:
         print(f'Usage: rig <serial-port-index>')
-        print(ports)
         for i in range(len(ports)):
             name = ports[i]
             print(f'{i}: {name}') 
     else:
-        test_port(ports(int(sys.argv[1])))
+        portnum = int(sys.argv[1])
+        test_port(ports[portnum])
 
 exit(0)
