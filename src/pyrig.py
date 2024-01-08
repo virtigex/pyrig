@@ -52,8 +52,7 @@ def cat_cmd(ser, cmd):
     ser.write(termcmd.encode('utf-8'))
     res = ser.read(size=64)
     #time.sleep(0.05)
-    return res.decode('utf-8')
-
+    return res
 
 def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
@@ -109,8 +108,8 @@ def test_port(port):
     except serial.SerialException:
         print('exception!')
     except RadioException as e:
-        print('protocol exception')
         print(e)
+        print('protocol exception')
 
     try:
         ser.close()
