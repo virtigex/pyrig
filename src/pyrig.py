@@ -47,16 +47,18 @@ class RadioException(Exception):
     pass
 
 def cat_cmd(ser, cmd):
+    print(f'cat_cmd {cmd}')
     termcmd = cmd + ';\n'
     ser.write(termcmd.encode('utf-8'))
     res = ser.read(size=64)
+    #time.sleep(0.05)
     return res
-
 
 def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
     if result != '?;':
         raise RadioException('no reply')
+
 def test_port(port):
     try:
         ser = serial.Serial(port, 9600, timeout=1)
@@ -72,6 +74,29 @@ def test_port(port):
 
         res = cat_cmd(ser, 'FA')
         print(res)
+
+        print('set power')
+        cat_set_cmd(ser, 'EX139005') # 5W power
+        res = cat_cmd(ser, 'EX139')
+        print(res)
+
+        # https://www.youtube.com/watch?v=CltsWx03UIo
+        cat_set_cmd(ser, 'EX0321')      # CAT TOT 100ms
+        cat_set_cmd(ser, 'EX0330')      # CAT RTS disable
+        cat_set_cmd(ser, 'EX0621')      # DATA MODE other
+        #cat_set_cmd(ser, 'EX064150')    # OTHER DISP (SSB) 1500ms
+        #cat_set_cmd(ser, 'EX065150')    # OTHER DISP (SSB) 1500ms
+        #cat_set_cmd(ser, 'EX06700')     # DATA LCUT FREQ off
+        cat_set_cmd(ser, 'EX06800')     # DATA HCUT FREQ off
+        cat_set_cmd(ser, 'EX0701')      # DATA IN SELECT rear
+        cat_set_cmd(ser, 'EX0710')      # DATA PTT SELECT daky
+        #cat_set_cmd(ser, 'EX0722')      # DATA PORT SELECT usb
+
+        # NOTCH, CONT, DNR, DNF off
+        cat_set_cmd(ser, 'BC00')        # NOTCH off
+
+        # SHIFT 0Hz, WIDTH 3000ms
+        # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
 
         print('transmitting')
         cat_set_cmd(ser, 'TX1')
