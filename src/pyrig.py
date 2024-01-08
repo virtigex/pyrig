@@ -1,5 +1,6 @@
 import sys
 import glob
+import pyaudio
 import serial
 import time
 
@@ -81,10 +82,10 @@ def test_port(port):
         res = cat_cmd(ser, 'FA')
         print(res)
 
-        print('set power')
-        cat_set_cmd(ser, 'EX139005') # 5W power
-        res = cat_cmd(ser, 'EX139')
-        print(res)
+        # set power
+        #cat_set_cmd(ser, 'EX139005') # 5W power
+        #res = cat_cmd(ser, 'EX139')
+        #print(res)
 
         # https://www.youtube.com/watch?v=CltsWx03UIo
         cat_set_cmd(ser, 'EX0321')      # CAT TOT 100ms
@@ -124,13 +125,24 @@ def test_port(port):
 if __name__ == '__main__':
     print('rig 1.0')
     ports = serial_ports()
-    if len(sys.argv) == 1:
-        print(f'Usage: rig <serial-port-index>')
+    audio = pyaudio.PyAudio()
+    if len(sys.argv) != 4:
+        print(f'Usage: rig <serial-port-index> <audio-device-index> <audio-file>')
+        print('serial ports')
         for i in range(len(ports)):
             name = ports[i]
-            print(f'{i}: {name}') 
+            print(f'{i}: {name}')
+        audio_dev_count = audio.get_device_count()
+        print(f'audio devices ({audio_dev_count})')
+        for i in range(audio_dev_count):
+            dev = audio.get_device_info_by_index(i)
+            name = dev['name']
+            print(f'{i} {name}')
     else:
         portnum = int(sys.argv[1])
+        audiodev = int(sys.argv[2])
+        dev = audio.get_device_info_by_index(audiodev)
+        print(dev)
         test_port(ports[portnum])
 
 exit(0)
