@@ -47,11 +47,19 @@ class RadioException(Exception):
     pass
 
 def cat_cmd(ser, cmd):
+    print(f'cmd: {cmd}')
     termcmd = cmd + ';\n'
     ser.write(termcmd.encode('utf-8'))
     res = ser.read(size=64)
-    return res.decode('utf-8')
-
+    try:
+        s = res.decode('utf-8')
+        return s
+    except UnicodeDecodeError as e:
+        # kludge for rpis
+        #print(cmd)
+        #print(e)
+        #print(res)
+        return '?;'
 
 def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
