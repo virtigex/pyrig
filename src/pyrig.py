@@ -47,18 +47,24 @@ class RadioException(Exception):
     pass
 
 def cat_cmd(ser, cmd):
-    print(f'cat_cmd {cmd}')
+    print(f'cmd: {cmd}')
     termcmd = cmd + ';\n'
     ser.write(termcmd.encode('utf-8'))
     res = ser.read(size=64)
-    #time.sleep(0.05)
-    return res
+    try:
+        s = res.decode('utf-8')
+        return s
+    except UnicodeDecodeError as e:
+        # kludge for rpis
+        #print(cmd)
+        #print(e)
+        #print(res)
+        return '?;'
 
 def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
     if result != '?;':
         raise RadioException('no reply')
-
 def test_port(port):
     try:
         ser = serial.Serial(port, 9600, timeout=1)
@@ -107,8 +113,7 @@ def test_port(port):
         print('transmit finished')
     except serial.SerialException:
         print('exception!')
-    except RadioException as e:
-        print(e)
+    except RadioException:
         print('protocol exception')
 
     try:
