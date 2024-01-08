@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "src/pyrig.py",
+            "args": [ "1", "30", "assets/kn6orm.mp3"],
+            "console": "integratedTerminal",
+        }
+    ]
+}
