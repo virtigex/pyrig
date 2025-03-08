@@ -67,7 +67,7 @@ def cat_set_cmd(ser, cmd):
         raise RadioException('no reply')
 def test_port(port):
     try:
-        ser = serial.Serial(port, 38400, timeout=1)
+        ser = serial.Serial(port, 57600, timeout=1)
         ser.close()
         ser.open()
     except serial.SerialException:
@@ -121,16 +121,45 @@ def test_port(port):
     except serial.SerialException:
         print('exception!')
 
+
+def run_repeater(port):
+    try:
+        ser = serial.Serial(port, 57600, timeout=1)
+        ser.close()
+        ser.open()
+    except serial.SerialException:
+        print('cannot open serial device')
+        exit(-1)
+
+    try:
+        r = cat_cmd(ser, '99 09 2106 570 * ; 9.5 Minutes/570 seconds(Enter)')
+        print(r)
+        r = cat_cmd(ser, '99 63 0112 0 *')
+        print(r)        
+        r = cat_cmd(ser, '99 70 01 *')
+        print(r)
+        r = cat_cmd(ser, '99 10 663 6000 *')
+        print(r)
+    except serial.SerialException:
+        print('exception!')
+    except RadioException:
+        print('protocol exception')
+
+    try:
+        ser.close()
+    except serial.SerialException:
+        print('exception!')
+
 if __name__ == '__main__':
-    print('rig 1.0')
+    print('WA6TOW Repeater 1.0')
     ports = serial_ports()
     if len(sys.argv) == 1:
-        print(f'Usage: rig <serial-port-index>')
+        print(f'Usage: scom_7330 <serial-port-index>')
         for i in range(len(ports)):
             name = ports[i]
             print(f'{i}: {name}') 
     else:
         portnum = int(sys.argv[1])
-        test_port(ports[portnum])
+        run_repeater(ports[portnum])
 
 exit(0)
