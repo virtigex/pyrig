@@ -119,16 +119,18 @@ def test_port(port):
     except serial.SerialException:
         print('exception!')
 
-class Rig:
+class PyRig:
 
     def __init__(self, serport):
         print(f'rig_serial: {serport}')
         self.ser = serial.Serial(serport, 9600, timeout=1)
         self.ser.close()
         self.ser.open()
+        self.tx(False)
 
     def close(self):
         self.mic_usb(False) # set handset active
+        self.tx(False)
         self.ser.close()
         self.ser = None
 
@@ -150,6 +152,10 @@ class Rig:
             cat_set_cmd(self.ser, 'EX0741') # rear mic
         else:
             cat_set_cmd(self.ser, 'EX0740') # handset
+
+    def tx(self, on):
+        cmd = 'TX1' if on else 'TX0'
+        cat_set_cmd(self.ser, cmd)
 
     def test(self):
         try:
@@ -178,6 +184,12 @@ class Rig:
 
             # SHIFT 0Hz, WIDTH 3000ms
             # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
+
+            print('transmit on')
+            self.tx(True)
+            time.sleep(2)
+            print('transmit off')
+            self.tx(False)
         except serial.SerialException:
             print('exception!')
             return False
@@ -198,7 +210,7 @@ def main():
         list_audio()
     else:
         portnum = int(sys.argv[1])
-        rig = Rig(ports[portnum])
+        rig = PyRig(ports[portnum])
         rig.mode_fm()
         rig.freq_vfoa(146460)
         rig.mic_usb(True)
