@@ -1,6 +1,8 @@
 import sys
 import glob
 import serial
+import sounddevice as sd
+import soundfile as sf
 import time
 
 def serial_ports():
@@ -63,6 +65,7 @@ def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
     if result != '?;':
         raise RadioException('no reply')
+
 def test_port(port):
     try:
         ser = serial.Serial(port, 9600, timeout=1)
@@ -121,18 +124,61 @@ def test_port(port):
 
 class PyRig:
 
-    def __init__(self, serport):
+    def __init__(self, serport, audport):
         print(f'rig_serial: {serport}')
-        self.ser = serial.Serial(serport, 9600, timeout=1)
+        self.sounddev = audport
+        #self.audin = sd.InputStream(device=audport, channels=1, samplerate=16000, callback=audio_callback)
+        #self.audout = sd.OutputStream(channels=1, samplerate=16000)
+        self.ser = serial.Serial(serport, 38400, timeout=1)
         self.ser.close()
         self.ser.open()
         self.tx(False)
+        self.initialize()
 
     def close(self):
         self.mic_usb(False) # set handset active
         self.tx(False)
         self.ser.close()
+        #self.audin.close()
+        #self.audout.close()
         self.ser = None
+
+    def initialize(self):
+        try:
+            # print current VFO-A 
+            res = cat_cmd(self.ser, 'FA')
+            print(res)
+
+            print('set power')
+            cat_set_cmd(self.ser, 'EX139005') # 5W power
+            res = cat_cmd(self.ser, 'EX139')
+            print(res)
+
+            # https://www.youtube.com/watch?v=CltsWx03UIo
+            cat_set_cmd(self.ser, 'EX0321')      # CAT TOT 100ms
+            cat_set_cmd(self.ser, 'EX0330')      # CAT RTS disable
+            cat_set_cmd(self.ser, 'EX0621')      # DATA MODE other
+            #cat_set_cmd(self.ser, 'EX064150')    # OTHER DISP (SSB) 1500ms
+            #cat_set_cmd(self.ser, 'EX065150')    # OTHER DISP (SSB) 1500ms
+            #cat_set_cmd(self.ser, 'EX06700')     # DATA LCUT FREQ off
+            cat_set_cmd(self.ser, 'EX06800')     # DATA HCUT FREQ off
+            cat_set_cmd(self.ser, 'EX0701')      # DATA IN SELECT rear
+            cat_set_cmd(self.ser, 'EX0710')      # DATA PTT SELECT daky
+            #cat_set_cmd(self.ser, 'EX0722')      # DATA PORT SELECT usb
+
+            cat_set_cmd(self.ser, 'OS00') # simplex
+
+            # NOTCH, CONT, DNR, DNF off
+            #cat_set_cmd(self.ser, 'BC00')        # NOTCH off
+
+            # SHIFT 0Hz, WIDTH 3000ms
+            # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
+        except serial.SerialException:
+            print('exception!')
+            return False
+        except RadioException:
+            print('protocol exception')
+            return False
 
     def mode_fm(self):
         cat_set_cmd(self.ser, 'MD04')
@@ -157,34 +203,15 @@ class PyRig:
         cmd = 'TX1' if on else 'TX0'
         cat_set_cmd(self.ser, cmd)
 
+    def play(self, wavefile):
+        data, fs = sf.read(wavefile)
+        self.tx(True)
+        sd.play(data, fs, device=self.sounddev)
+        sd.wait()
+        self.tx(False)
+
     def test(self):
         try:
-            res = cat_cmd(self.ser, 'FA')
-            print(res)
-
-            print('set power')
-            cat_set_cmd(self.ser, 'EX139005') # 5W power
-            res = cat_cmd(self.ser, 'EX139')
-            print(res)
-
-            # https://www.youtube.com/watch?v=CltsWx03UIo
-            cat_set_cmd(self.ser, 'EX0321')      # CAT TOT 100ms
-            cat_set_cmd(self.ser, 'EX0330')      # CAT RTS disable
-            cat_set_cmd(self.ser, 'EX0621')      # DATA MODE other
-            #cat_set_cmd(self.ser, 'EX064150')    # OTHER DISP (SSB) 1500ms
-            #cat_set_cmd(self.ser, 'EX065150')    # OTHER DISP (SSB) 1500ms
-            #cat_set_cmd(self.ser, 'EX06700')     # DATA LCUT FREQ off
-            cat_set_cmd(self.ser, 'EX06800')     # DATA HCUT FREQ off
-            cat_set_cmd(self.ser, 'EX0701')      # DATA IN SELECT rear
-            cat_set_cmd(self.ser, 'EX0710')      # DATA PTT SELECT daky
-            #cat_set_cmd(self.ser, 'EX0722')      # DATA PORT SELECT usb
-
-            # NOTCH, CONT, DNR, DNF off
-            #cat_set_cmd(self.ser, 'BC00')        # NOTCH off
-
-            # SHIFT 0Hz, WIDTH 3000ms
-            # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
-
             print('transmit on')
             self.tx(True)
             time.sleep(2)
@@ -201,24 +228,30 @@ class PyRig:
 def main():
     print('rig 1.0')
     ports = serial_ports()
-    if len(sys.argv) == 1:
+    sounddevs = sd.query_devices()
+    if len(sys.argv) != 3:
         print(f'Usage: rig <serial-port-index>')
         for i in range(len(ports)):
             name = ports[i]
             print(f'{i}: {name}')
         print('audio:')
-        list_audio()
+        print(sounddevs)
+        #list_audio()
     else:
         portnum = int(sys.argv[1])
-        rig = PyRig(ports[portnum])
+        snddev = int(sys.argv[2])
+        rig = PyRig(ports[portnum], snddev)
         rig.mode_fm()
         rig.freq_vfoa(146460)
         rig.mic_usb(True)
-        if rig.test():
-            print('test passed!')
-        else:
+        try:
+            rig.play('assets/kn6orm-call.mp3')
+            print('test passed')
+        except Exception as e:
+            print(e)
             print('test failed')
-        rig.close()
+        finally:
+            rig.close()
 
 if __name__ == '__main__':
     main()
