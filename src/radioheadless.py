@@ -2,74 +2,90 @@ import sounddevice as sd
 import asyncio
 import numpy as np
 import sys
-import os
-import shutil
 
-SAMPLE_RATE = 44100
-BUFFER_SIZE = 4410 # 10 ms per bufffer
-RINGLEN = 2048
+DIR = 'C:\\Users\\Steve\\Documents\\radioheadless'
+SAMPLE_RATE = 8000
+BUFFER_SIZE = 80 # 10 ms per bufffer
+RECLEN = 300 * 80 # five minutes
 
-class Frame():
+class Frame:
     def __init__(self):
-        self.power = 0.0
-        self.buffer = np.empty((BUFFER_SIZE, 1), dtype=np.int16)
-        self.reset()
-    
-    def reset(self):
+        self.data = np.empty((BUFFER_SIZE, 1), dtype=np.int16)
         self.pos = 0
         self.valid = False
 
-    def process(self, sample):
-        self.buffer[self.pos] = sample
-        self.pos += 1
-        if self.pos == self.buffer.shape[0]:
-            self.valid = True
-            self.power = 0.0
-            for i in range(self.buffer.shape[0]):
-                s = self.buffer[i]
-                print(f'sample[{i}]: {s}')
-                self.power += self.buffer[i] * self.buffer[i]
-            self.pos = 0
-            self.valid = True
-            print(f'power: {self.power}')
-            return True
-        return False
+    def reset(self):
+        self.pos = 0
+        self.power = 0.0
+        self.valid = False
 
-class RingBuffer():
-    def __init__(self, length):
-        self.ringbuf = []
-        for i in range(length):
-            self.ringbuf.append(Frame())
-        self.ringstart = 0
-        self.ringend = 0
+    def fill(self, indata, offset):
+        insamps = indata.shape[0] - offset
+        towrite = BUFFER_SIZE - self.pos
+        if insamps < towrite:
+            for i in range(insamps):
+                self.data[self.pos] = indata[offset + i]
+                self.pos += 1
+            return offset + insamps
+        for i in range(towrite):
+            self.data[self.pos] = indata[offset + i]
+            self.pos += 1
+        power = 0
+        for s in self.data:
+            samp = float(s)
+            power += samp * samp
+        self.power = power
+        self.valid = True
+        return offset + towrite
+
+    def isvalid(self):
+        return self.valid
+
+class RingBuffer:
+
+    def __init__(self, noframes):
+        self.bufs = [Frame() for _ in range(noframes)]
+        self.next = 0
+        self.tail = 0
+
+    def process(self, indata):
+        offset = 0
+        while offset < indata.shape[0]:
+            bin = self.next % len(self.bufs)
+            offset = self.bufs[bin].fill(indata, offset)
+            if self.bufs[bin].isvalid():
+                self.next += 1
+                # bins self.tail to (self.next-1) are valid here
+                self.detect()
+                print(f'valid buf {bin}')
+                bufsize = len(self.bufs)
+                if (self.next % bufsize) == (self.tail % bufsize):
+                    self.bufs[self.tail].reset()
+                    self.tail += 1
 
     def detect(self):
-        pass
+        p = [self.bufs[(self.next-i-1) % len(self.bufs)].power for i in range(self.next - self.tail)]
+        print(f'{len(p)}: {p}')
 
-async def collect(dev_id, dir):
-    ringbuf = RingBuffer(RINGLEN)
+async def collect(dir):
+
+    last_frame = None
+    frame_last = np.empty((BUFFER_SIZE, 1), dtype=np.int16)
     running = True
     no_recording = 0
     no_frames = 0
     loop = asyncio.get_event_loop()
     event = asyncio.Event()
+    ringbuf = RingBuffer(RECLEN)
 
     def callback(indata, frames, time, status):
-        nonlocal ringbuf
-        nonlocal running
         nonlocal no_recording
         nonlocal no_frames
-
+        nonlocal ringbuf
+        nonlocal running
         print(f'status: {status}, frames: {frames}, time: {time}, indata: {indata.shape}')
-        buf = ringbuf.ringbuf[ringbuf.ringend]
-        for i in range(indata.shape[0]):
-            if buf.process(indata[i]):
-                ringbuf.ringend = (ringbuf.ringend + 1) % RINGLEN
-                if ringbuf.ringend == ringbuf.ringstart:
-                    raise Exception('ring buffer overflow')
-                # DEBUG
-                sys.exit(-1)
-
+        ringbuf.process(indata)
+        #if not running:
         if no_frames > 1000 or not running:
             loop.call_soon_threadsafe(event.set)
             raise sd.CallbackStop
@@ -77,52 +93,26 @@ async def collect(dev_id, dir):
         print(no_frames)
 
     try:
-        stream = sd.InputStream(samplerate=SAMPLE_RATE, device=dev_id, channels=1, callback=callback)
+        stream = sd.InputStream(device=None, samplerate=SAMPLE_RATE, channels=1, callback=callback)
         stream.start()
         await event.wait()
     except KeyboardInterrupt:
         running = False
+        await event.wait()
     except asyncio.exceptions.CancelledError:
         pass
     finally:
-        print('terminating')
         stream.stop()
         stream.close()
 
     return no_recording
 
-
-def prepare_dir(dir):
-    # DEBUG: remove directory if it exists
-    shutil.rmtree(dir, ignore_errors=True)
-    if os.path.exists(dir):
-        raise Exception(f'directory {dir} already exists')
-    os.makedirs(dir)
-
-def usage():
-    print(f"Usage: {sys.argv[0]} <dev_id> <directory>")
-    print("Process audio from device <dev_is> into files in <directory>")
-    print("<directory> is created and must not exist")
-    devlist = sd.query_devices()
-    print('Available devices:')
-    for i in range(len(devlist)):
-        dev = devlist[i] 
-        print(f"{i}:  {dev['name']}")
-    sys.exit(1)
-
 async def main():
-    if len(sys.argv) != 3:
-        usage()
-
-    devlist = sd.query_devices()
-    dev_id = int(sys.argv[1])
-    print(sd.default.device)
-    sd.default.device = dev_id # devlist[dev_id]['name']
-    print(sd.default.device)
-    #usage()
-    dir = sys.argv[2]
-    prepare_dir(dir)
-    recorded_audio = await collect(dev_id, dir)
+    if len(sys.argv)!= 2:
+        print(f"Usage: {sys.argv[0]} <directory>")
+        sys.exit(1)
+    dir = sys.argv[1]
+    recorded_audio = await collect(dir)
     print(f"number of frames recorded: {recorded_audio}")
 
 if __name__ == "__main__":

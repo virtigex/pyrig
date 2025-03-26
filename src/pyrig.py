@@ -31,8 +31,6 @@ def serial_ports():
             pass
     return result
 
-
-
 def list_audio():
     import pyaudio
     p = pyaudio.PyAudio()
@@ -121,16 +119,96 @@ def test_port(port):
     except serial.SerialException:
         print('exception!')
 
-if __name__ == '__main__':
+class Rig:
+
+    def __init__(self, serport):
+        print(f'rig_serial: {serport}')
+        self.ser = serial.Serial(serport, 9600, timeout=1)
+        self.ser.close()
+        self.ser.open()
+
+    def close(self):
+        self.mic_usb(False) # set handset active
+        self.ser.close()
+        self.ser = None
+
+    def mode_fm(self):
+        cat_set_cmd(self.ser, 'MD04')
+
+    def mode_lsb(self):
+        cat_set_cmd(self.ser, 'MD01')
+
+    def mode_usb(self):
+        cat_set_cmd(self.ser, 'MD02')
+
+    def freq_vfoa(self, khz):
+        cmd = f'FA{khz:05}000'
+        cat_set_cmd(self.ser, cmd)
+
+    def mic_usb(self, state):
+        if state:
+            cat_set_cmd(self.ser, 'EX0741') # rear mic
+        else:
+            cat_set_cmd(self.ser, 'EX0740') # handset
+
+    def test(self):
+        try:
+            res = cat_cmd(self.ser, 'FA')
+            print(res)
+
+            print('set power')
+            cat_set_cmd(self.ser, 'EX139005') # 5W power
+            res = cat_cmd(self.ser, 'EX139')
+            print(res)
+
+            # https://www.youtube.com/watch?v=CltsWx03UIo
+            cat_set_cmd(self.ser, 'EX0321')      # CAT TOT 100ms
+            cat_set_cmd(self.ser, 'EX0330')      # CAT RTS disable
+            cat_set_cmd(self.ser, 'EX0621')      # DATA MODE other
+            #cat_set_cmd(self.ser, 'EX064150')    # OTHER DISP (SSB) 1500ms
+            #cat_set_cmd(self.ser, 'EX065150')    # OTHER DISP (SSB) 1500ms
+            #cat_set_cmd(self.ser, 'EX06700')     # DATA LCUT FREQ off
+            cat_set_cmd(self.ser, 'EX06800')     # DATA HCUT FREQ off
+            cat_set_cmd(self.ser, 'EX0701')      # DATA IN SELECT rear
+            cat_set_cmd(self.ser, 'EX0710')      # DATA PTT SELECT daky
+            #cat_set_cmd(self.ser, 'EX0722')      # DATA PORT SELECT usb
+
+            # NOTCH, CONT, DNR, DNF off
+            #cat_set_cmd(self.ser, 'BC00')        # NOTCH off
+
+            # SHIFT 0Hz, WIDTH 3000ms
+            # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
+        except serial.SerialException:
+            print('exception!')
+            return False
+        except RadioException:
+            print('protocol exception')
+            return False
+        return True
+
+def main():
     print('rig 1.0')
     ports = serial_ports()
     if len(sys.argv) == 1:
         print(f'Usage: rig <serial-port-index>')
         for i in range(len(ports)):
             name = ports[i]
-            print(f'{i}: {name}') 
+            print(f'{i}: {name}')
+        print('audio:')
+        list_audio()
     else:
         portnum = int(sys.argv[1])
-        test_port(ports[portnum])
+        rig = Rig(ports[portnum])
+        rig.mode_fm()
+        rig.freq_vfoa(146460)
+        rig.mic_usb(True)
+        if rig.test():
+            print('test passed!')
+        else:
+            print('test failed')
+        rig.close()
+
+if __name__ == '__main__':
+    main()
 
 exit(0)

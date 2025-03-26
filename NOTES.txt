@@ -1,4 +1,7 @@
-python3 -m venv ~/venv/
 
-source .venv/bin/activate
+use miniconda
+
+python src/pyrig.py 2
+
+conda install -c conda-forge libstdcxx-ng
 
