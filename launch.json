@@ -6,8 +6,17 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-	    "args": [ "/tmp" ],
+	        "args": [ "/tmp" ],
+            "console": "integradtedTerminal"
+        },
+        {
+            "name": "pyrig audio linux",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+	        "args": [ "2", "5" ],
             "console": "integradtedTerminal"
         }
+
     ]
 }
