@@ -3,3 +3,5 @@ soundfile
 pyaudio
 pyserial
 matplotlib
+numba
+numpy

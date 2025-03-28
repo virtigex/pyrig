@@ -1,4 +1,7 @@
 import numpy as np
+import math
+
+IOTA = 1.0e-09
 
 class Frame:
     def __init__(self, framesize):
@@ -27,7 +30,9 @@ class Frame:
         for s in self.data:
             samp = float(s)
             power += samp * samp
-        self.power = power
+        if power < IOTA:
+            power = IOTA
+        self.power = math.log10(power)
         self.valid = True
         return offset + towrite
 
