@@ -61,7 +61,7 @@ class RingBuffer:
                 #print(f'valid buf {bin}')
                 bufsize = len(self.bufs)
                 if (self.next % bufsize) == (self.tail % bufsize):
-                    self.bufs[self.tail].reset()
+                    self.bufs[self.tail % bufsize].reset()
                     self.tail += 1
 
 class RingListener:

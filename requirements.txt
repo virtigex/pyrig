@@ -1,7 +1,6 @@
 sounddevice
 soundfile
-pyaudio
+pymp3
 pyserial
 matplotlib
-numba
 numpy
