@@ -31,8 +31,6 @@ def serial_ports():
             pass
     return result
 
-
-
 def list_audio():
     import pyaudio
     p = pyaudio.PyAudio()
@@ -65,6 +63,12 @@ def cat_set_cmd(ser, cmd):
     result = cat_cmd(ser, cmd)
     if result != '?;':
         raise RadioException('no reply')
+    
+class Rig:
+    def __init__(self, serport, auddev):
+        pass
+
+
 def test_port(port):
     try:
         ser = serial.Serial(port, 38400, timeout=1)
@@ -75,7 +79,8 @@ def test_port(port):
         exit(-1)
 
     try:
-        cat_set_cmd(ser, 'FA028075000')
+        #cat_set_cmd(ser, 'FA028075000')
+        cat_set_cmd(ser, 'FA146460000')
         cat_set_cmd(ser, 'MD02') # USB
 
         res = cat_cmd(ser, 'FA')
@@ -105,11 +110,11 @@ def test_port(port):
         # METER alc, PF PWR 15W, DT GAIN 18, IPO ipo
 
         print('transmitting')
-        #cat_set_cmd(ser, 'TX1')
+        cat_set_cmd(ser, 'TX1')
 
         time.sleep(2)
 
-        #cat_set_cmd(ser, 'TX0')
+        cat_set_cmd(ser, 'TX0')
         print('transmit finished')
     except serial.SerialException:
         print('exception!')
@@ -128,7 +133,9 @@ if __name__ == '__main__':
         print(f'Usage: rig <serial-port-index>')
         for i in range(len(ports)):
             name = ports[i]
-            print(f'{i}: {name}') 
+            print(f'{i}: {name}')
+        print('audio')
+        list_audio()
     else:
         portnum = int(sys.argv[1])
         test_port(ports[portnum])

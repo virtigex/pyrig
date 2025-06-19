@@ -108,7 +108,7 @@ try:
     ax.tick_params(bottom=False, top=False, labelbottom=False,
                    right=False, left=False, labelleft=False)
     fig.tight_layout(pad=0)
-
+    print(f'SR: {args.samplerate}, CH: {args.channels}, DV: {args.device}')
     stream = sd.InputStream(
         device=args.device, channels=max(args.channels),
         samplerate=args.samplerate, callback=audio_callback)
