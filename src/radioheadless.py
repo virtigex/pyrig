@@ -25,6 +25,7 @@ class Listener(RingListener):
         RingListener.__init__(self)
 
     def detect(self, bufs, next, tail):
+        start = time.time()
         #print(f'next {next}')
         ringlen = len(bufs)
         length = next - tail
@@ -64,10 +65,13 @@ class Listener(RingListener):
                         #print(f'shape {samples.shape}')
                         print(*pows, sep=",")
                         q.put(samples)
-
+                        elapsed = time.time() - start
+                        print(f'elapsed with detect {elapsed}')
                         #print(f'tail set to {tail + frameno} next is {next}')
                         return tail + frameno
         #print(f'tail remaining at {tail}')
+        elapsed = time.time() - start
+        #print(f'elapsed {elapsed}')
         return tail
 
 async def collect(dir):
@@ -108,9 +112,13 @@ async def collect(dir):
 
 async def encoder(dir):
     waves_processed = 0
+    print('encoder starting')
     while True:
         try:
+            # convert to 16-bit audio
             samples = await q.get()
+            samples = samples * SCALE
+            samples = samples.astype(np.int16)
             date = time.strftime('wave-%Y_%m_%d-%X.mp3')
             print(f'encoder got {samples.shape} at {date}')
             #mp3.encode(samples, dir, waves_processed)
@@ -121,18 +129,26 @@ async def encoder(dir):
             break
     return waves_processed
     
-async def main():
+def main():
     #if len(sys.argv)!= 2:
     #    print(f"Usage: {sys.argv[0]} <directory>")
     #    sys.exit(1)
     #dir = sys.argv[1]
     dir = 'c:\\tmp'
-    task_encoder = asyncio.create_task(encoder(dir))
-    task_collect = asyncio.create_task(collect(dir))
-    results = await asyncio.gather(task_encoder, task_collect)
-    print(results)
-    recorded_audio = await collect(dir)
-    print(f"number of frames recorded: {recorded_audio}")
+    try:
+        #task_encoder = asyncio.create_task(encoder(dir))
+        #task_collect = asyncio.create_task(collect(dir))
+        #results = await asyncio.gather(task_encoder, task_collect)
+        results = asyncio.run(asyncio.gather(encoder(dir), collect(dir)))
+        print(results)
+    except Exception as e:
+        print(f'exception {e}')
+    #recorded_audio = await collect(dir)
+    #print(f"number of frames recorded: {recorded_audio}")
+
+def main_0():
+    dir = '/tmp'
+    asyncio.run(collect(dir))
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main_0()
