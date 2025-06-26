@@ -22,6 +22,19 @@ devices connected to it with
 
 sudo arp-scan --interface=enp34s0 192.168.73.0/24
 
+## Works in Progress
+
+### pyrig.py
+
+A Python class PyRig that currently controls the Yaesu 991a via CAT commands.
+It is in the early stages, but it can be used for configuting the radio's
+many settings for various operating modes, such as FT8 and Phone.
+
+### radioheadless.py
+
+This streams incoming audio from a radio, detects transmission and saves then to either
+local or cloud storage. 
+
 ## Authors
 
 Steve Austin - KN6ORM - Coastside Amateur Radio Club
